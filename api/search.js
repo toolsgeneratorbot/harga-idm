@@ -24,6 +24,7 @@ async function searchProducts(keyword) {
   let hasMore = true;
 
   while (hasMore && allProducts.length < 50) {
+    // PERHATIKAN: pakai backtick ` bukan tanda kutip '
     const url = `\( {CONFIG.BASE_URL}?keyword= \){encodeURIComponent(keyword)}&type=keyword&page=\( {page}&size=50&storeCode= \){CONFIG.STORE_CODE}&latitude=\( {CONFIG.LATITUDE}&longitude= \){CONFIG.LONGITUDE}&mode=\( {CONFIG.MODE}&districtId= \){CONFIG.DISTRICT_ID}&isUserFiltered=false`;
 
     try {
@@ -68,7 +69,6 @@ async function searchProducts(keyword) {
 
   return allProducts;
 }
-
 // ===============================
 // 📦 FORMAT PRODUCT
 // ===============================
