@@ -2,6 +2,6 @@
   "name": "search-klik",
   "version": "1.0.0",
   "dependencies": {
-    "cloudscraper": "^4.6.0"
+    "axios": "^1.7.7"
   }
 }
