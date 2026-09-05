@@ -1,9 +1,6 @@
 const axios = require('axios');
 const https = require('https');
 
-// ===============================
-// 🔧 KONFIGURASI
-// ===============================
 const TIMEOUT = 25000;
 const HARGA_API_KEY = "TGZONE-ID-ee53f4b5-0303-4b3b-aab8-90cefd75d163";
 
@@ -29,16 +26,22 @@ const client = axios.create({
   }
 });
 
-// ===============================
-// 🔄 SEARCH FUNCTION
-// ===============================
 async function searchProducts(keyword) {
   const allProducts = [];
   let page = 0;
   let hasMore = true;
 
   while (hasMore && allProducts.length < 50) {
-    const url = `\( {CONFIG.BASE_URL}?keyword= \){encodeURIComponent(keyword)}&type=keyword&page=\( {page}&size=50&storeCode= \){CONFIG.STORE_CODE}&latitude=\( {CONFIG.LATITUDE}&longitude= \){CONFIG.LONGITUDE}&mode=\( {CONFIG.MODE}&districtId= \){CONFIG.DISTRICT_ID}&isUserFiltered=false`;
+    // PENTING: harus pakai backtick `
+    const url = CONFIG.BASE_URL + 
+      "?keyword=" + encodeURIComponent(keyword) +
+      "&type=keyword&page=" + page +
+      "&size=50&storeCode=" + CONFIG.STORE_CODE +
+      "&latitude=" + CONFIG.LATITUDE +
+      "&longitude=" + CONFIG.LONGITUDE +
+      "&mode=" + CONFIG.MODE +
+      "&districtId=" + CONFIG.DISTRICT_ID +
+      "&isUserFiltered=false";
 
     try {
       const response = await client.get(url);
@@ -51,7 +54,6 @@ async function searchProducts(keyword) {
         hasMore = false;
       } else {
         allProducts.push(...content);
-
         const totalPages = response.data?.data?.totalPages || 0;
         if (page >= totalPages - 1) {
           hasMore = false;
@@ -60,16 +62,13 @@ async function searchProducts(keyword) {
         }
       }
     } catch (error) {
-      throw new Error(`Gagal mengambil data: ${error.message}`);
+      throw new Error("Gagal mengambil data: " + error.message);
     }
   }
 
   return allProducts;
 }
 
-// ===============================
-// 📦 FORMAT PRODUCT
-// ===============================
 function formatProduct(product) {
   return {
     plu: String(product.plu || "-"),
@@ -77,26 +76,23 @@ function formatProduct(product) {
     price: Number(product.price || 0),
     finalPrice: Number(product.finalPrice || 0),
     discountText: product.discountText || "",
-    promoText: product.promoText || product.promo || "",
-    imageUrl: product.imageUrl || product.image || "",
+    promoText: product.promoText  product.promo  "",
+    imageUrl: product.imageUrl  product.image  "",
     brandName: product.brandName || "-",
-    size: product.size || product.uom || "-",
+    size: product.size  product.uom  "-",
     descriptionList: product.descriptionList || []
   };
 }
 
-// ===============================
-// 🔍 ENDPOINT
-// ===============================
 module.exports = async (req, res) => {
   if (req.method !== "GET") {
     return res.status(405).json({
-      success: false,
-      error: "Method Not Allowed"
+      sukses: false,
+      produk: [],
+      kesalahan: "Method Not Allowed"
     });
   }
 
-  // 🔐 API KEY CHECK
   const apiKey =
     req.headers["x-api-key"] ||
     req.headers["x-correlation-id"] ||
@@ -105,8 +101,9 @@ module.exports = async (req, res) => {
 
   if (!apiKey || apiKey !== HARGA_API_KEY) {
     return res.status(401).json({
-      success: false,
-      error: "x-API_KEY tidak valid.. hubungi developer TGZONE-ID"
+      sukses: false,
+      produk: [],
+      kesalahan: "x-API_KEY tidak valid.. hubungi developer TGZONE-ID"
     });
   }
 
@@ -114,34 +111,31 @@ module.exports = async (req, res) => {
 
   if (!keyword) {
     return res.status(400).json({
-      success: false,
-      error: "Parameter 'keyword' atau 'q' wajib diisi",
-      example: "/api/search?keyword=sania&x_correlation_id=YOUR_KEY"
+      sukses: false,
+      produk: [],
+      kesalahan: "Parameter 'keyword' atau 'q' wajib diisi"
     });
   }
-
-  console.log(`[🔍] SEARCH: ${keyword}`);
 
   try {
     const allProducts = await searchProducts(keyword);
     let products = allProducts.map(formatProduct);
 
-    // Kalau input angka (PLU), filter exact
     if (/^\d+$/.test(keyword)) {
       products = products.filter(p => p.plu === keyword);
     }
 
     return res.json({
-      success: true,
-      products
+      sukses: true,
+      produk: products
     });
 
   } catch (err) {
-    console.error("❌ ERROR:", err.message);
+    console.error("ERROR:", err.message);
     return res.status(500).json({
-      success: false,
-      products: [],
-      error: err.message
+      sukses: false,
+      produk: [],
+      kesalahan: err.message
     });
   }
 };
