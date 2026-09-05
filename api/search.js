@@ -1,9 +1,10 @@
-const cloudscraper = require('cloudscraper');
+const axios = require('axios');
+const https = require('https');
 
 // ===============================
 // 🔧 KONFIGURASI
 // ===============================
-const TIMEOUT = 30000;
+const TIMEOUT = 25000;
 const HARGA_API_KEY = "TGZONE-ID-ee53f4b5-0303-4b3b-aab8-90cefd75d163";
 
 const CONFIG = {
@@ -15,6 +16,19 @@ const CONFIG = {
   DISTRICT_ID: "141500075",
 };
 
+const client = axios.create({
+  timeout: TIMEOUT,
+  httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
+    'Origin': 'https://www.klikindomaret.com',
+    'Referer': 'https://www.klikindomaret.com/',
+    'X-Requested-With': 'XMLHttpRequest'
+  }
+});
+
 // ===============================
 // 🔄 SEARCH FUNCTION
 // ===============================
@@ -24,44 +38,27 @@ async function searchProducts(keyword) {
   let hasMore = true;
 
   while (hasMore && allProducts.length < 50) {
-    // PERHATIKAN: pakai backtick ` bukan tanda kutip '
     const url = `\( {CONFIG.BASE_URL}?keyword= \){encodeURIComponent(keyword)}&type=keyword&page=\( {page}&size=50&storeCode= \){CONFIG.STORE_CODE}&latitude=\( {CONFIG.LATITUDE}&longitude= \){CONFIG.LONGITUDE}&mode=\( {CONFIG.MODE}&districtId= \){CONFIG.DISTRICT_ID}&isUserFiltered=false`;
 
     try {
-      const responseText = await cloudscraper.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36',
-          'Accept': 'application/json, text/plain, */*',
-          'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
-          'Origin': 'https://www.klikindomaret.com',
-          'Referer': 'https://www.klikindomaret.com/',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        cloudflareTimeout: TIMEOUT,
-        challengesToSolve: 3,
-      });
+      const response = await client.get(url);
 
-      const response = typeof responseText === 'string'
-        ? JSON.parse(responseText)
-        : responseText;
+      if (!response.data || response.data.status !== "00") break;
 
-      if (!response || response.status !== "00") break;
-
-      const content = response.data?.content || [];
+      const content = response.data?.data?.content || [];
 
       if (content.length === 0) {
         hasMore = false;
       } else {
         allProducts.push(...content);
 
-        const totalPages = response.data?.totalPages || 0;
+        const totalPages = response.data?.data?.totalPages || 0;
         if (page >= totalPages - 1) {
           hasMore = false;
         } else {
           page++;
         }
       }
-
     } catch (error) {
       throw new Error(`Gagal mengambil data: ${error.message}`);
     }
@@ -69,6 +66,7 @@ async function searchProducts(keyword) {
 
   return allProducts;
 }
+
 // ===============================
 // 📦 FORMAT PRODUCT
 // ===============================
@@ -91,7 +89,6 @@ function formatProduct(product) {
 // 🔍 ENDPOINT
 // ===============================
 module.exports = async (req, res) => {
-  // Hanya izinkan GET
   if (req.method !== "GET") {
     return res.status(405).json({
       success: false,
@@ -113,7 +110,6 @@ module.exports = async (req, res) => {
     });
   }
 
-  // 🔍 PARAMETER
   const keyword = req.query.keyword || req.query.q;
 
   if (!keyword) {
@@ -130,19 +126,18 @@ module.exports = async (req, res) => {
     const allProducts = await searchProducts(keyword);
     let products = allProducts.map(formatProduct);
 
-    // Kalau input angka (PLU), filter exact match
+    // Kalau input angka (PLU), filter exact
     if (/^\d+$/.test(keyword)) {
       products = products.filter(p => p.plu === keyword);
     }
 
     return res.json({
       success: true,
-      products: products
+      products
     });
 
   } catch (err) {
     console.error("❌ ERROR:", err.message);
-
     return res.status(500).json({
       success: false,
       products: [],
